@@ -263,6 +263,75 @@ fmt.Printf("%s", s)
 // Hello JOHN DOE!
 ```
 
+## Validating templates before execution
+
+```go
+template := "Hello, {{name}}! Your discount is {{calculateDiscount(total, membership)}}."
+// Check if all template variables and functions are available
+err := fasttemplate.Validate(template, "{{", "}}", fasttemplate.Map{
+    "name": "John",
+    "total": 100.0,
+    "membership": "gold",
+    "calculateDiscount": func(total float64, tier string) float64 {
+        switch tier {
+        case "gold":
+            return total * 0.15
+        case "silver":
+            return total * 0.10
+        default:
+            return 0
+        }
+    },
+})
+
+if err != nil {
+    // Handle validation error
+    fmt.Println("Template validation failed:", err)
+} else {
+    // Template is valid, proceed with execution
+    t := fasttemplate.New(template, "{{", "}}")
+    result := t.ExecuteString(/* same map as used for validation */)
+    fmt.Println(result)
+}
+
+// Output:
+// Hello, John! Your discount is 15.
+```
+
+## Direct expression evaluation with typed results
+
+```go
+// Simple variable lookup with strong typing
+name, err := fasttemplate.Eval[string]("name", fasttemplate.Map{
+    "name": "John",
+})
+fmt.Println("Name:", name) // Output: Name: John
+
+// Expression evaluation with correct return type
+total, err := fasttemplate.Eval[float64]("price * quantity * (1 - discount)", fasttemplate.Map{
+    "price":    29.99,
+    "quantity": 3,
+    "discount": 0.15,
+})
+fmt.Printf("Total: $%.2f\n", total) // Output: Total: $76.47
+
+// Function call evaluation 
+greeting, err := fasttemplate.Eval[string]("greet(name)", fasttemplate.Map{
+    "name": "Alice",
+    "greet": func(name string) string {
+        return "Hello, " + name + "!"
+    },
+})
+fmt.Println(greeting) // Output: Hello, Alice!
+
+// Boolean expression evaluation
+isEligible, err := fasttemplate.Eval[bool]("age >= 21 && hasID", fasttemplate.Map{
+    "age": 25,
+    "hasID": true,
+})
+fmt.Println("Is eligible:", isEligible) // Output: Is eligible: true
+```
+
 License
 =======
 
