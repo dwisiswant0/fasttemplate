@@ -12,6 +12,15 @@ import (
 // Map is a map of function names to functions that can be called from templates.
 type Map map[string]any
 
+// Merge combines the contents of another Map into this Map.
+// Values from the other Map will overwrite values in this Map if keys conflict.
+func (m Map) Merge(other Map) Map {
+	for k, v := range other {
+		m[k] = v
+	}
+	return m
+}
+
 // FunctionCall represents a parsed function call in a template.
 type functionCall struct {
 	Name string
