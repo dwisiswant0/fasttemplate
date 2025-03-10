@@ -1,21 +1,24 @@
+//go:build !appengine
 // +build !appengine
 
 package fasttemplate
 
 import (
-	"reflect"
 	"unsafe"
 )
 
 func unsafeBytes2String(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
+	// Copied from https://go101.org/article/unsafe.html
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
-func unsafeString2Bytes(s string) (b []byte) {
-	sh := (*reflect.StringHeader)(unsafe.Pointer(&s))
-	bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	bh.Data = sh.Data
-	bh.Cap = sh.Len
-	bh.Len = sh.Len
-	return b
+func unsafeString2Bytes(s string) []byte {
+	// Copied from https://go101.org/article/unsafe.html
+	if s == "" {
+		return nil
+	}
+	return unsafe.Slice(unsafe.StringData(s), len(s))
 }

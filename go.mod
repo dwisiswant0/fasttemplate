@@ -1,6 +1,6 @@
 module github.com/dwisiswant0/fasttemplate
 
-go 1.18
+go 1.20
 
 require github.com/valyala/bytebufferpool v1.0.0
 
