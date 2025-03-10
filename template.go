@@ -9,6 +9,7 @@ package fasttemplate
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -61,7 +62,12 @@ func Execute(template, startTag, endTag string, w io.Writer, m Map) (int64, erro
 		ni, err = processTag(w, tag, m)
 		nn += int64(ni)
 		if err != nil {
-			return nn, err
+			// Always propagate func call errors, but maintain backward
+			// compatibility for simple variable errors
+			if isFunctionCall(tag) || !errors.Is(err, errVariableNotFound) {
+				return nn, err
+			}
+			// for simple variable not found, ignore for backward compatibility
 		}
 		s = s[n+len(b):]
 	}
@@ -309,8 +315,15 @@ func (t *Template) Execute(w io.Writer, m Map) (int64, error) {
 
 		ni, err = processTag(w, t.tags[i], m)
 		nn += int64(ni)
+		// Special handling for errors:
+		// - For function calls, propagate all errors
+		// - For variables, only propagate non-"variable not found" errors
+		//   (backward compatibility)
 		if err != nil {
-			return nn, err
+			if isFunctionCall(t.tags[i]) || !errors.Is(err, errVariableNotFound) {
+				return nn, err
+			}
+			// for simple variable not found, ignore for backward compatibility
 		}
 	}
 	ni, err := w.Write(t.texts[n])
@@ -446,7 +459,7 @@ func (t *Template) Validate(m Map) error {
 		// check for expressions with operators
 		if isExpression(tag) {
 			// We don't validate expressions in detail as vars within
-			// expressions will be resolved during execution
+			// expressions will be resolved during execution later
 			continue
 		}
 
@@ -464,7 +477,11 @@ func (t *Template) Validate(m Map) error {
 func processTag(w io.Writer, tag string, m Map) (int, error) {
 	if isFunctionCall(tag) {
 		funcCall, err := parseFunctionCall(tag)
-		if err == nil && m != nil {
+		if err != nil {
+			return 0, fmt.Errorf("error parsing function call %q: %w", tag, err)
+		}
+
+		if m != nil {
 			tempFuncs := Map{}
 
 			// scan for all funcs in the `m` map
@@ -478,13 +495,13 @@ func processTag(w io.Writer, tag string, m Map) (int, error) {
 			if fn, ok := tempFuncs[funcCall.Name]; ok {
 				fnType := reflect.TypeOf(fn)
 				if !isValidArgCount(fnType, len(funcCall.Args)) {
-					return 0, nil
+					return 0, fmt.Errorf("invalid argument count for function %q", funcCall.Name)
 				}
 
 				// exec the func with access to all funcs for nested calls
 				result, err := funcCall.execute(tempFuncs, m)
 				if err != nil {
-					return 0, err
+					return 0, err // Propagate the error from the function call
 				}
 				if result != nil {
 					switch v := result.(type) {
@@ -498,13 +515,14 @@ func processTag(w io.Writer, tag string, m Map) (int, error) {
 				}
 				return 0, nil
 			}
+			// Function not found, return a specific error
+			return 0, fmt.Errorf("function not found: %s", funcCall.Name)
 		}
-		// If we get here, the function call couldn't be executed
-		// Return empty string without error
-		return 0, nil
+		// Missing map, return an error
+		return 0, fmt.Errorf("no functions map provided for function call: %s", tag)
 	}
 
-	// Check if this is an expression with operators
+	// Check if this is an expr with operators
 	if isExpression(tag) {
 		result, err := evalExpression(tag, m)
 		if err != nil {
@@ -523,7 +541,10 @@ func processTag(w io.Writer, tag string, m Map) (int, error) {
 		return 0, nil
 	}
 
-	v := m[tag]
+	v, ok := m[tag]
+	if !ok {
+		return 0, fmt.Errorf("%w: %s", errVariableNotFound, tag)
+	}
 	if v == nil {
 		return 0, nil
 	}
@@ -542,9 +563,18 @@ func processTag(w io.Writer, tag string, m Map) (int, error) {
 }
 
 func processTagStd(w io.Writer, tag, startTag, endTag string, m Map) (int, error) {
+	// First check if this is a function call
 	if isFunctionCall(tag) {
 		funcCall, err := parseFunctionCall(tag)
-		if err == nil && m != nil {
+		if err != nil {
+			// Preserve the original tag if there's a parsing error
+			if _, err := preserveTag(w, tag, startTag, endTag); err != nil {
+				return 0, err
+			}
+			return len(startTag) + len(tag) + len(endTag), nil
+		}
+
+		if m != nil {
 			tempFuncs := Map{}
 
 			// scan for all funcs in the `m` map
@@ -574,6 +604,7 @@ func processTagStd(w io.Writer, tag, startTag, endTag string, m Map) (int, error
 					}
 					return len(startTag) + len(tag) + len(endTag), nil
 				}
+
 				if result != nil {
 					switch v := result.(type) {
 					case []byte:

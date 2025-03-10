@@ -382,7 +382,7 @@ func ExampleEval_function() {
 	}
 
 	// Call a function directly
-	upperName, err := Eval[string]("upper(nami)", data)
+	upperName, err := Eval[string]("upper(name)", data)
 	if err != nil {
 		fmt.Println("Error:", err)
 	}

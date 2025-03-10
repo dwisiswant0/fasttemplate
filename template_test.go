@@ -530,3 +530,58 @@ func expectPanic(t *testing.T, f func()) {
 	}()
 	f()
 }
+
+func TestEvalAndExecute(t *testing.T) {
+	data := Map{
+		"first_name": "john",
+		"upper": func(s string) string {
+			return strings.ToUpper(s)
+		},
+	}
+
+	t.Run("ExpressionEvaluation", func(t *testing.T) {
+		expr := "'Hello, ' + upper(first_name) + '!'"
+		case1, err := Eval[string](expr, data)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+		}
+		if case1 != "Hello, JOHN!" {
+			t.Errorf("unexpected result: %s", case1)
+		}
+
+		case2, err := Eval[string]("upper(last_name)", data)
+		if err == nil {
+			t.Errorf("expecting error")
+		}
+		if case2 != "" {
+			t.Errorf("unexpected result: %s", case2)
+		}
+	})
+
+	t.Run("SuccessfulExecution", func(t *testing.T) {
+		tmpl := New("Hello, {{upper(first_name)}}!", "{{", "}}")
+
+		var bb bytes.Buffer
+		_, err := tmpl.Execute(&bb, data)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+		}
+		if bb.String() != "Hello, JOHN!" {
+			t.Errorf("unexpected result: %s", bb.String())
+		}
+	})
+
+	t.Run("ErrorHandling", func(t *testing.T) {
+		template := "Hello, {{upper(last_name)}}!"
+		tmpl := New(template, "{{", "}}")
+
+		var bb bytes.Buffer
+		_, err := tmpl.Execute(&bb, data)
+		if err == nil {
+			t.Error("expecting error")
+		}
+		if bb.String() != "Hello, " {
+			t.Errorf("unexpected result: %s", bb.String())
+		}
+	})
+}

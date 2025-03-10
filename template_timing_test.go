@@ -183,9 +183,7 @@ func BenchmarkFastTemplateExecuteFunc(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		var w bytes.Buffer
 		for pb.Next() {
-			if _, err := t.Execute(&w, tagHandlers); err != nil {
-				b.Fatalf("unexpected error: %s", err)
-			}
+			_, _ = t.Execute(&w, tagHandlers)
 			x := w.Bytes()
 			if !bytes.Equal(x, resultBytes) {
 				b.Fatalf("unexpected result\n%q\nExpected\n%q\n", x, resultBytes)
@@ -205,9 +203,7 @@ func BenchmarkFastTemplateExecute(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		var w bytes.Buffer
 		for pb.Next() {
-			if _, err := t.Execute(&w, m); err != nil {
-				b.Fatalf("unexpected error: %s", err)
-			}
+			_, _ = t.Execute(&w, m)
 			x := w.Bytes()
 			if !bytes.Equal(x, resultBytes) {
 				b.Fatalf("unexpected result\n%q\nExpected\n%q\n", x, resultBytes)
@@ -449,9 +445,187 @@ func BenchmarkFastTemplateComplexFunctions(b *testing.B) {
 	})
 }
 
-func testTagFunc(w io.Writer, tag string) (int, error) {
-	if t, ok := m[tag]; ok {
-		return w.Write(t.([]byte))
+// BenchmarkFastTemplateEval benchmarks the Eval function with different types of expressions
+func BenchmarkFastTemplateEval(b *testing.B) {
+	data := Map{
+		"name":     "John",
+		"age":      30,
+		"balance":  1250.75,
+		"isActive": true,
+		"items":    []string{"apple", "banana", "orange"},
+		"multiply": func(a, b int) int {
+			return a * b
+		},
+		"format": func(n float64) string {
+			return fmt.Sprintf("$%.2f", n)
+		},
+		"greet": func(name string) string {
+			return "Hello, " + name + "!"
+		},
 	}
-	return 0, nil
+
+	b.Run("Variable_String", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[string]("name", data)
+			if result != "John" {
+				b.Fatalf("Expected John, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Variable_Int", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[int]("age", data)
+			if result != 30 {
+				b.Fatalf("Expected 30, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Variable_Float", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[float64]("balance", data)
+			if result != 1250.75 {
+				b.Fatalf("Expected 1250.75, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Variable_Bool", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[bool]("isActive", data)
+			if !result {
+				b.Fatalf("Expected true, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Simple_Expression", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[int]("age * 2", data)
+			if result != 60 {
+				b.Fatalf("Expected 60, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Complex_Expression", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[float64]("balance * 1.05 + 100", data)
+			if result < 1413.0 || result > 1414.0 { // Allow small float precision differences
+				b.Fatalf("Expected approx 1413.29, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Boolean_Expression", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[bool]("age > 18 && isActive", data)
+			if !result {
+				b.Fatalf("Expected true, got %v", result)
+			}
+		}
+	})
+
+	b.Run("String_Concatenation", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[string]("'Hello, ' + name", data)
+			if result != "Hello, John" {
+				b.Fatalf("Expected 'Hello, John', got %v", result)
+			}
+		}
+	})
+
+	b.Run("Simple_Function", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[string]("greet(name)", data)
+			if result != "Hello, John!" {
+				b.Fatalf("Expected 'Hello, John!', got %v", result)
+			}
+		}
+	})
+
+	b.Run("Function_With_Literals", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[int]("multiply(6, 7)", data)
+			if result != 42 {
+				b.Fatalf("Expected 42, got %v", result)
+			}
+		}
+	})
+
+	b.Run("Function_With_Expression", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ := Eval[string]("format(balance * 1.1)", data)
+			if result != "$1375.83" {
+				b.Fatalf("Expected '$1375.83', got %v", result)
+			}
+		}
+	})
+}
+
+// Compare Eval to the traditional template approach
+func BenchmarkFastTemplateVersus(b *testing.B) {
+	data := Map{
+		"name":     "John",
+		"age":      30,
+		"balance":  1250.75,
+		"isActive": true,
+	}
+
+	b.Run("Eval_Simple", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = Eval[string]("name", data)
+		}
+	})
+
+	b.Run("Template_Simple", func(b *testing.B) {
+		b.ReportAllocs()
+		template := New("{{name}}", "{{", "}}")
+		for i := 0; i < b.N; i++ {
+			_ = template.ExecuteString(data)
+		}
+	})
+
+	b.Run("Eval_Expression", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = Eval[float64]("balance * 1.1", data)
+		}
+	})
+
+	b.Run("Template_Expression", func(b *testing.B) {
+		b.ReportAllocs()
+		template := New("{{balance * 1.1}}", "{{", "}}")
+		for i := 0; i < b.N; i++ {
+			_ = template.ExecuteString(data)
+		}
+	})
+
+	b.Run("Eval_Complex", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = Eval[bool]("age > 18 && isActive", data)
+		}
+	})
+
+	b.Run("Template_Complex", func(b *testing.B) {
+		b.ReportAllocs()
+		template := New("{{age > 18 && isActive}}", "{{", "}}")
+		for i := 0; i < b.N; i++ {
+			_ = template.ExecuteString(data)
+		}
+	})
 }

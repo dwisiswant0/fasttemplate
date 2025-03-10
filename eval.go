@@ -23,6 +23,7 @@ func Eval[T any](expression string, m Map) (T, error) {
 
 		result, err := fnCall.execute(m, m)
 		if err != nil {
+			// Forward all errors from function execution
 			return zero, err
 		}
 
@@ -44,7 +45,7 @@ func Eval[T any](expression string, m Map) (T, error) {
 		return convertToType[T](val)
 	}
 
-	return zero, fmt.Errorf("variable not found: %s", expression)
+	return zero, fmt.Errorf("%w: %s", errVariableNotFound, expression)
 }
 
 // convertToType handles converting a value to the desired type T
