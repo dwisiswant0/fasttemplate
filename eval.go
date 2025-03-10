@@ -6,12 +6,21 @@ import (
 	"strconv"
 )
 
+// EvalType is a type constraint that only allows numeric types, string, and
+// bool
+type EvalType interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+		~float32 | ~float64 |
+		~string | ~bool
+}
+
 // Eval evaluates an expression directly without requiring template tags.
-// It accepts a generic type parameter T and returns a value of that type.
+// It accepts a type parameter T that must be a number, string, or boolean.
 //
 // The expression can be a simple variable lookup, a function call, or a complex
 // expression with arithmetic, comparison, and logical operators.
-func Eval[T any](expression string, m Map) (T, error) {
+func Eval[T EvalType](expression string, m Map) (T, error) {
 	var zero T
 
 	// Handle function calls
