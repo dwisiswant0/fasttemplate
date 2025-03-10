@@ -516,7 +516,7 @@ func processTag(w io.Writer, tag string, m Map) (int, error) {
 				return 0, nil
 			}
 			// Function not found, return a specific error
-			return 0, fmt.Errorf("function not found: %s", funcCall.Name)
+			return 0, fmt.Errorf("%w: %s", errFunctionNotFound, funcCall.Name)
 		}
 		// Missing map, return an error
 		return 0, fmt.Errorf("no functions map provided for function call: %s", tag)
