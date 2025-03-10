@@ -439,7 +439,7 @@ func evaluatePostfix(postfix []token, data Map) (interface{}, error) {
 			if !ok {
 				// it looks like a variable
 				if isLikelyVariable(t.value) {
-					return nil, fmt.Errorf("variable not found: %s", t.value)
+					return nil, fmt.Errorf("%w: %s", errVariableNotFound, t.value)
 				}
 				// otherwise, use as string literal
 				stack = append(stack, t.value)

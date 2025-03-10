@@ -31,7 +31,7 @@ type literalString string
 func (fc *functionCall) execute(funcs, data Map) (interface{}, error) {
 	fn, ok := funcs[fc.Name]
 	if !ok {
-		return nil, fmt.Errorf("function not found: %s", fc.Name)
+		return nil, fmt.Errorf("%w: %s", errFunctionNotFound, fc.Name)
 	}
 
 	// Prepare args
