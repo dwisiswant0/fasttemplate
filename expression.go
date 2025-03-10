@@ -90,6 +90,19 @@ func isExpression(tag string) bool {
 
 // evalExpression evaluates an expression and returns the result
 func evalExpression(expression string, data Map) (interface{}, error) {
+	// check if it's a simple function call that doesn't need tokenization
+	if isFunctionCall(expression) {
+		funcCall, err := parseFunctionCall(expression)
+		if err != nil {
+			return nil, err
+		}
+		result, err := funcCall.execute(data, data)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+
 	tokens, err := tokenize(expression)
 	if err != nil {
 		return nil, err
@@ -113,6 +126,7 @@ const (
 	tokenIdentifier
 	tokenLeftParen
 	tokenRightParen
+	tokenFunctionCall
 )
 
 // Token structure
@@ -156,13 +170,13 @@ func tokenize(expr string) ([]token, error) {
 	for i := 0; i < len(expr); {
 		c := expr[i]
 
-		// Skip whitespace (fast path using direct byte comparison)
+		// Skip whitespace (fast path using direct byte comp)
 		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
 			i++
 			continue
 		}
 
-		// Handle numbers (fast path using direct byte comparison)
+		// Handle numbers (fast path using direct byte comp)
 		if c >= '0' && c <= '9' {
 			start := i
 			hasDot := false
@@ -186,7 +200,7 @@ func tokenize(expr string) ([]token, error) {
 			continue
 		}
 
-		// Handle identifiers (variable names) - fast path
+		// Handle identifiers and function calls (variable names) - fast path
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
 			start := i
 			i++
@@ -200,6 +214,50 @@ func tokenize(expr string) ([]token, error) {
 					break
 				}
 			}
+
+			// check if this is a function call
+			if i < len(expr) && expr[i] == '(' {
+				// Find the matching closing parenthesis
+				parenDepth := 1
+				funcStart := start
+				i++ // Skip the opening parenthesis
+
+				for parenDepth > 0 && i < len(expr) {
+					if expr[i] == '(' {
+						parenDepth++
+					} else if expr[i] == ')' {
+						parenDepth--
+					} else if expr[i] == '"' || expr[i] == '\'' {
+						// Skip quoted strings
+						quote := expr[i]
+						i++
+						for i < len(expr) && expr[i] != quote {
+							if expr[i] == '\\' && i+1 < len(expr) {
+								i += 2 // Skip escaped chars
+							} else {
+								i++
+							}
+						}
+					}
+
+					if parenDepth > 0 && i < len(expr) {
+						i++
+					}
+				}
+
+				if parenDepth > 0 {
+					return nil, fmt.Errorf("unclosed function call")
+				}
+
+				// Include the closing parenthesis
+				i++
+
+				// Add as func call token
+				tokens = append(tokens, token{tokenFunctionCall, expr[funcStart:i]})
+				continue
+			}
+
+			// Regular identifier
 			tokens = append(tokens, token{tokenIdentifier, expr[start:i]})
 			continue
 		}
@@ -263,14 +321,15 @@ func tokenize(expr string) ([]token, error) {
 	return tokens, nil
 }
 
-// toPostfix converts infix tokens to postfix notation using the Shunting-yard algorithm
+// toPostfix converts infix tokens to postfix notation using the Shunting-yard
+// algorithm
 func toPostfix(infix []token) ([]token, error) {
 	var output []token
 	var stack []token
 
 	for _, t := range infix {
 		switch t.typ {
-		case tokenNumber, tokenString, tokenIdentifier:
+		case tokenNumber, tokenString, tokenIdentifier, tokenFunctionCall:
 			output = append(output, t)
 		case tokenLeftParen:
 			stack = append(stack, t)
@@ -359,16 +418,35 @@ func evaluatePostfix(postfix []token, data Map) (interface{}, error) {
 
 			stack = append(stack, s)
 
+		case tokenFunctionCall:
+			// Parse and execute the function call
+			funcCall, err := parseFunctionCall(t.value)
+			if err != nil {
+				return nil, err
+			}
+
+			// Execute the function with access to all data
+			result, err := funcCall.execute(data, data)
+			if err != nil {
+				return nil, err
+			}
+
+			stack = append(stack, result)
+
 		case tokenIdentifier:
 			// Variable lookup optimization
 			val, ok := data[t.value]
 			if !ok {
-				// If variable not found, use as string literal
+				// it looks like a variable
+				if isLikelyVariable(t.value) {
+					return nil, fmt.Errorf("variable not found: %s", t.value)
+				}
+				// otherwise, use as string literal
 				stack = append(stack, t.value)
 				continue
 			}
 
-			// Function call optimization - check only if it's a function
+			// check only if it's a function (optimized)
 			if funcVal, isFunc := val.(func(string) string); isFunc && len(stack) > 0 {
 				// Apply function to top of stack if it's a string
 				if argVal, isStr := stack[len(stack)-1].(string); isStr {
@@ -418,8 +496,10 @@ func applyOperator(op string, a, b interface{}) (interface{}, error) {
 			va, vb := toFloat64(a), toFloat64(b)
 			return va + vb, nil
 		}
-		// String concatenation
-		return toString(a) + toString(b), nil
+
+		aStr := toString(a)
+		bStr := toString(b)
+		return aStr + bStr, nil
 
 	case "-":
 		if !isNumeric(a) || !isNumeric(b) {

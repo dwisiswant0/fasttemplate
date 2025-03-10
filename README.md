@@ -28,25 +28,24 @@ goos: linux
 goarch: amd64
 pkg: github.com/dwisiswant0/fasttemplate
 cpu: 11th Gen Intel(R) Core(TM) i9-11900H @ 2.50GHz
-BenchmarkFmtFprintf-16                           	14440868	        96.09 ns/op	       0 B/op	       0 allocs/op
-BenchmarkStringsReplace-16                       	 3350306	       386.0 ns/op	    1056 B/op	       7 allocs/op
-BenchmarkStringsReplacer-16                      	 1237899	       980.9 ns/op	    2552 B/op	      24 allocs/op
-BenchmarkTextTemplate-16                         	 1784298	       695.9 ns/op	     352 B/op	      20 allocs/op
-BenchmarkFastTemplateExecuteFunc-16              	 5368425	       220.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkFastTemplateExecute-16                  	 5754160	       212.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkFastTemplateExecuteStd-16               	 5269351	       226.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkFastTemplateExecuteString-16            	 2873421	       439.4 ns/op	     609 B/op	       4 allocs/op
-BenchmarkFastTemplateExecuteStringStd-16         	 2719828	       441.7 ns/op	     625 B/op	       4 allocs/op
-BenchmarkNewTemplate-16                          	 4070407	       293.7 ns/op	     768 B/op	       3 allocs/op
-BenchmarkTemplateReset-16                        	15786704	        74.98 ns/op	       0 B/op	       0 allocs/op
-BenchmarkExecuteFunc-16                          	 4070721	       297.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkFastTemplateFunctionCall-16             	 2334838	       498.5 ns/op	     408 B/op	      19 allocs/op
-BenchmarkFastTemplateNestedFunctions-16          	 2356756	       559.5 ns/op	     417 B/op	      19 allocs/op
-BenchmarkFastTemplateVariableArguments-16        	 1629037	       712.9 ns/op	     905 B/op	      31 allocs/op
-BenchmarkFastTemplateFunctionWithVariables-16    	 1944312	       593.1 ns/op	     352 B/op	      18 allocs/op
-BenchmarkFastTemplateComplexFunctions-16         	  408087	      3077 ns/op	    2905 B/op	      91 allocs/op
-PASS
-ok  	github.com/dwisiswant0/fasttemplate	27.646s
+BenchmarkFmtFprintf-16                           	13713362	        96.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkStringsReplace-16                       	 3393204	       446.4 ns/op	    1168 B/op	       7 allocs/op
+BenchmarkStringsReplacer-16                      	 1211418	       993.5 ns/op	    2552 B/op	      24 allocs/op
+BenchmarkTextTemplate-16                         	 1717138	       675.9 ns/op	     352 B/op	      20 allocs/op
+BenchmarkFastTemplateExecuteFunc-16              	 4194436	       292.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFastTemplateExecute-16                  	 4164301	       289.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFastTemplateExecuteStd-16               	 5574823	       218.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFastTemplateExecuteString-16            	 2329857	       507.0 ns/op	     673 B/op	       7 allocs/op
+BenchmarkFastTemplateExecuteStringStd-16         	 2734778	       444.8 ns/op	     625 B/op	       4 allocs/op
+BenchmarkNewTemplate-16                          	 4027020	       299.0 ns/op	     768 B/op	       3 allocs/op
+BenchmarkTemplateReset-16                        	16813707	        73.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExecuteFunc-16                          	 3263163	       354.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFastTemplateFunctionCall-16             	 2346298	       514.0 ns/op	     408 B/op	      19 allocs/op
+BenchmarkFastTemplateNestedFunctions-16          	 2494704	       478.1 ns/op	     417 B/op	      19 allocs/op
+BenchmarkFastTemplateVariableArguments-16        	 1701109	       724.9 ns/op	     905 B/op	      31 allocs/op
+BenchmarkFastTemplateFunctionWithVariables-16    	 2042143	       585.7 ns/op	     352 B/op	      18 allocs/op
+BenchmarkFastTemplateComplexFunctions-16         	  373095	      3276 ns/op	    2904 B/op	      91 allocs/op
+# TRUNCATED BenchmarkFastTemplateEval* RESULTS
 ```
 
 Docs

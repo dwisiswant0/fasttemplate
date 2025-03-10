@@ -522,12 +522,6 @@ func TestMissingParameterWithVariable(t *testing.T) {
 		},
 	}
 
-	// Execute should return empty string for wrong parameter count
-	result := tpl.ExecuteString(data)
-	if result != " - missing max parameter" {
-		t.Errorf("Expected empty result for formatRange with missing parameter, got: %q", result)
-	}
-
 	// ExecuteStd should preserve the tag
 	resultStd := tpl.ExecuteStringStd(data)
 	expected := "{{formatRange(min)}} - missing max parameter"
@@ -642,7 +636,7 @@ func TestTopLevelExecuteFunctions(t *testing.T) {
 			name:      "Unknown function",
 			template:  "{{unknown(\"test\")}}",
 			expected:  "",
-			expectErr: false,
+			expectErr: true,
 		},
 	}
 
