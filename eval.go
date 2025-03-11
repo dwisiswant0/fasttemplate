@@ -3,7 +3,6 @@ package fasttemplate
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 )
 
 // EvalType is a type constraint that only allows numeric types, string, and
@@ -65,97 +64,26 @@ func convertToType[T any](val any) (T, error) {
 		return v, nil
 	}
 
-	targetType := reflect.TypeOf((*T)(nil)).Elem()
-
-	switch targetType.Kind() {
-	case reflect.String:
-		// Convert to string
+	// Fast path for common types
+	switch any(zero).(type) {
+	case string:
 		s := toString(val)
-		return any(s).(T), nil // no need to convertible check
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		// Convert to int
-		var i int64
-		switch v := val.(type) {
-		case int:
-			i = int64(v)
-		case int8:
-			i = int64(v)
-		case int16:
-			i = int64(v)
-		case int32:
-			i = int64(v)
-		case int64:
-			i = v
-		case uint:
-			i = int64(v)
-		case uint8:
-			i = int64(v)
-		case uint16:
-			i = int64(v)
-		case uint32:
-			i = int64(v)
-		case uint64:
-			i = int64(v)
-		case float32:
-			i = int64(v)
-		case float64:
-			i = int64(v)
-		case string:
-			var err error
-			i, err = strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return zero, fmt.Errorf("cannot convert string %q to int", v)
-			}
-		case bool:
-			if v {
-				i = 1
-			} else {
-				i = 0
-			}
-		default:
-			return zero, fmt.Errorf("cannot convert %T to int", val)
-		}
-		v := reflect.ValueOf(i)
-		if v.Type().ConvertibleTo(targetType) {
-			return v.Convert(targetType).Interface().(T), nil
-		}
-	case reflect.Float32, reflect.Float64:
-		// Convert to float
-		var f float64
-		switch v := val.(type) {
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-			f = toFloat64(v)
-		case float32:
-			f = float64(v)
-		case float64:
-			f = v
-		case string:
-			var err error
-			f, err = strconv.ParseFloat(v, 64)
-			if err != nil {
-				return zero, fmt.Errorf("cannot convert string %q to float", v)
-			}
-		case bool:
-			if v {
-				f = 1.0
-			} else {
-				f = 0.0
-			}
-		default:
-			return zero, fmt.Errorf("cannot convert %T to float", val)
-		}
-		v := reflect.ValueOf(f)
-		if v.Type().ConvertibleTo(targetType) {
-			return v.Convert(targetType).Interface().(T), nil
-		}
-	case reflect.Bool:
-		// Convert to bool
+		return any(s).(T), nil
+
+	case float64:
+		f := toFloat64(val)
+		return any(f).(T), nil
+
+	case int:
+		i := int(toFloat64(val))
+		return any(i).(T), nil
+
+	case bool:
 		b := toBool(val)
-		v := reflect.ValueOf(b)
-		if v.Type().ConvertibleTo(targetType) {
-			return v.Convert(targetType).Interface().(T), nil
-		}
+		return any(b).(T), nil
 	}
+
+	targetType := reflect.TypeOf((*T)(nil)).Elem()
 
 	// Try with reflection as a last resort
 	valValue := reflect.ValueOf(val)

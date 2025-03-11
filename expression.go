@@ -4,7 +4,19 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+// expressionCache is a cache for storing parsed expressions
+type expressionCache struct {
+	mu      sync.RWMutex
+	postfix map[string][]token
+}
+
+// exprCache is the global expression cache
+var exprCache = expressionCache{
+	postfix: make(map[string][]token),
+}
 
 // List of operators in order of precedence (low to high)
 var operators = map[string]int{
@@ -103,19 +115,29 @@ func evalExpression(expression string, data Map) (interface{}, error) {
 		return result, nil
 	}
 
-	tokens, err := tokenize(expression)
-	if err != nil {
-		return nil, err
-	}
+	exprCache.mu.RLock()
+	postfixTokens, found := exprCache.postfix[expression]
+	exprCache.mu.RUnlock()
 
-	// Convert to postfix notation using the Shunting-yard algorithm
-	postfix, err := toPostfix(tokens)
-	if err != nil {
-		return nil, err
+	if !found {
+		tokens, err := tokenize(expression)
+		if err != nil {
+			return nil, err
+		}
+
+		postfixTokens, err = toPostfix(tokens)
+		if err != nil {
+			return nil, err
+		}
+
+		// Store in cache
+		exprCache.mu.Lock()
+		exprCache.postfix[expression] = postfixTokens
+		exprCache.mu.Unlock()
 	}
 
 	// Evaluate the postfix expression
-	return evaluatePostfix(postfix, data)
+	return evaluatePostfix(postfixTokens, data)
 }
 
 // Token types
@@ -162,10 +184,20 @@ var multiCharOps = map[string]bool{
 	"**": true,
 }
 
+// tokenPool is a pool for reusing token slices
+var tokenPool = sync.Pool{
+	New: func() any {
+		tokens := make([]token, 0, initialTokenCapacity)
+		return &tokens
+	},
+}
+
 // tokenize converts a string expression into tokens
 func tokenize(expr string) ([]token, error) {
-	// pre-alloc token slice with reasonable capacity
-	tokens := make([]token, 0, initialTokenCapacity)
+	// Get token slice from pool
+	tokensPtr := tokenPool.Get().(*[]token)
+	tokens := *tokensPtr
+	tokens = tokens[:0] // Clear but keep capacity
 
 	for i := 0; i < len(expr); {
 		c := expr[i]
@@ -318,14 +350,20 @@ func tokenize(expr string) ([]token, error) {
 		return nil, fmt.Errorf("unexpected character: %c at position %d", c, i)
 	}
 
-	return tokens, nil
+	result := make([]token, len(tokens))
+	copy(result, tokens)
+
+	// Put original back in pool
+	tokenPool.Put(tokensPtr)
+
+	return result, nil
 }
 
 // toPostfix converts infix tokens to postfix notation using the Shunting-yard
 // algorithm
 func toPostfix(infix []token) ([]token, error) {
-	var output []token
-	var stack []token
+	output := make([]token, 0, len(infix))
+	stack := make([]token, 0, len(infix)/2)
 
 	for _, t := range infix {
 		switch t.typ {
