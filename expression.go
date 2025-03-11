@@ -324,8 +324,8 @@ func tokenize(expr string) ([]token, error) {
 // toPostfix converts infix tokens to postfix notation using the Shunting-yard
 // algorithm
 func toPostfix(infix []token) ([]token, error) {
-	var output []token
-	var stack []token
+	output := make([]token, 0, len(infix))
+	stack := make([]token, 0, len(infix)/2)
 
 	for _, t := range infix {
 		switch t.typ {
