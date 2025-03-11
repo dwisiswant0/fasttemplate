@@ -208,26 +208,11 @@ func tokenize(expr string) ([]token, error) {
 			continue
 		}
 
-		// Handle numbers (fast path using direct byte comp)
 		if c >= '0' && c <= '9' {
 			start := i
-			hasDot := false
-
-			// Fast digit scanning
-			for i < len(expr) {
-				if expr[i] >= '0' && expr[i] <= '9' {
-					i++
-				} else if expr[i] == '.' {
-					if hasDot {
-						return nil, fmt.Errorf("invalid number format: multiple decimal points")
-					}
-					hasDot = true
-					i++
-				} else {
-					break
-				}
+			for i < len(expr) && ((expr[i] >= '0' && expr[i] <= '9') || expr[i] == '.') {
+				i++
 			}
-
 			tokens = append(tokens, token{tokenNumber, expr[start:i]})
 			continue
 		}
